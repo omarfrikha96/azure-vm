@@ -1,7 +1,11 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
-from inventory.azure_arm import get_vms_inventory
+from inventory.azure_arm import (
+    get_vms_inventory,
+    get_resource_groups_inventory,
+    get_resources_by_rg_inventory,
+)
 from inventory.models import AzureResource, VirtualMachine
 
 
@@ -116,3 +120,55 @@ def resource_details(request):
         "is_deleted": r.is_deleted,
         "deleted_at": r.deleted_at,
     })
+
+
+@require_GET
+def resource_groups_list(request):
+    """
+    GET /api/resource-groups/
+    
+    Live call to Azure ARM to list all resource groups.
+    Filters:
+      - ?region=<location>
+    """
+    try:
+        data = get_resource_groups_inventory()
+        
+        # Apply optional region filter
+        region = request.GET.get("region")
+        if region:
+            data = [rg for rg in data if rg.get("location", "").lower() == region.lower()]
+        
+        return JsonResponse({"count": len(data), "resource_groups": data})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_GET
+def resources_by_rg(request):
+    """
+    GET /api/resources-by-rg/?rg=<resource_group_name>
+    
+    Live call to Azure ARM to list all resources in a resource group.
+    Includes component_summary for each resource (VM, storage, NSG, etc.).
+    
+    Filters:
+      - ?rg=<resource_group_name>  (required)
+      - ?type=<resource_type>      (optional)
+    """
+    rg_name = request.GET.get("rg")
+    if not rg_name:
+        return JsonResponse({"error": "missing ?rg=<resource_group_name>"}, status=400)
+    
+    try:
+        data = get_resources_by_rg_inventory(rg_name)
+        
+        # Apply optional type filter
+        rtype = request.GET.get("type")
+        if rtype:
+            data = [r for r in data if r.get("type", "").lower() == rtype.lower()]
+        
+        return JsonResponse({"count": len(data), "resources": data})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+

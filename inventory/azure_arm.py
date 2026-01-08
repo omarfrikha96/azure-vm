@@ -140,6 +140,77 @@ def list_all_resources(token: str) -> List[Dict[str, Any]]:
     return arm_get_paged(url, token)
 
 
+def list_resource_groups(token: str) -> List[Dict[str, Any]]:
+    """
+    List all resource groups in the subscription.
+    Returns a list of resource group objects with name, location, tags, etc.
+    """
+    _require_subscription()
+    url = f"{ARM_BASE}/subscriptions/{SUBSCRIPTION_ID}/resourcegroups?api-version={GENERIC_LIST_API}"
+    return arm_get_paged(url, token)
+
+
+def list_resources_by_rg(token: str, resource_group: str) -> List[Dict[str, Any]]:
+    """
+    List all resources in a specific resource group.
+    Returns a list of resource objects.
+    """
+    _require_subscription()
+    url = f"{ARM_BASE}/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{resource_group}/resources?api-version={GENERIC_LIST_API}"
+    return arm_get_paged(url, token)
+
+
+def get_resource_groups_inventory() -> List[Dict[str, Any]]:
+    """
+    Get all resource groups with basic info (no auth param needed - uses internal token).
+    """
+    token = get_token()
+    rgs = list_resource_groups(token)
+    
+    result = []
+    for rg in rgs:
+        props = rg.get("properties") or {}
+        result.append({
+            "name": rg.get("name"),
+            "location": rg.get("location"),
+            "tags": rg.get("tags") or {},
+            "provisioningState": props.get("provisioningState"),
+            "id": rg.get("id"),
+        })
+    return result
+
+
+def get_resources_by_rg_inventory(resource_group: str) -> List[Dict[str, Any]]:
+    """
+    Get all resources in a resource group with component summaries.
+    """
+    token = get_token()
+    resources = list_resources_by_rg(token, resource_group)
+    
+    result = []
+    for res in resources:
+        # Build basic info
+        item = {
+            "azure_id": res.get("id"),
+            "name": res.get("name"),
+            "type": res.get("type"),
+            "location": res.get("location"),
+            "kind": res.get("kind"),
+            "tags": res.get("tags") or {},
+        }
+        
+        # Try to get component summary for supported resource types
+        try:
+            raw_detail, _api_version = get_resource_raw_detail(token, res["id"], res["type"])
+            item["component_summary"] = build_component_summary(token, raw_detail)
+        except Exception:
+            item["component_summary"] = None
+        
+        result.append(item)
+    
+    return result
+
+
 def get_resource_raw_detail(token: str, resource_id: str, full_type: str) -> Tuple[Dict[str, Any], str]:
     api_version = get_api_version_for_type(token, full_type)
     url = f"{ARM_BASE}{resource_id}?api-version={api_version}"
