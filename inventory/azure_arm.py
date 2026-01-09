@@ -180,16 +180,20 @@ def get_resource_groups_inventory() -> List[Dict[str, Any]]:
     return result
 
 
-def get_resources_by_rg_inventory(resource_group: str) -> List[Dict[str, Any]]:
+def get_resources_by_rg_inventory(resource_group: str, include_details: bool = False) -> List[Dict[str, Any]]:
     """
-    Get all resources in a resource group with component summaries.
+    Get all resources in a resource group.
+    
+    Args:
+        resource_group: Name of the resource group
+        include_details: If True, fetch component summaries (slower, makes extra API calls)
     """
     token = get_token()
     resources = list_resources_by_rg(token, resource_group)
     
     result = []
     for res in resources:
-        # Build basic info
+        # Build basic info (fast - no extra API calls)
         item = {
             "azure_id": res.get("id"),
             "name": res.get("name"),
@@ -199,12 +203,13 @@ def get_resources_by_rg_inventory(resource_group: str) -> List[Dict[str, Any]]:
             "tags": res.get("tags") or {},
         }
         
-        # Try to get component summary for supported resource types
-        try:
-            raw_detail, _api_version = get_resource_raw_detail(token, res["id"], res["type"])
-            item["component_summary"] = build_component_summary(token, raw_detail)
-        except Exception:
-            item["component_summary"] = None
+        # Only fetch component summary if explicitly requested (slow)
+        if include_details:
+            try:
+                raw_detail, _api_version = get_resource_raw_detail(token, res["id"], res["type"])
+                item["component_summary"] = build_component_summary(token, raw_detail)
+            except Exception:
+                item["component_summary"] = None
         
         result.append(item)
     

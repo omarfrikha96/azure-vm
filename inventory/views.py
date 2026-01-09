@@ -150,18 +150,20 @@ def resources_by_rg(request):
     GET /api/resources-by-rg/?rg=<resource_group_name>
     
     Live call to Azure ARM to list all resources in a resource group.
-    Includes component_summary for each resource (VM, storage, NSG, etc.).
     
     Filters:
       - ?rg=<resource_group_name>  (required)
       - ?type=<resource_type>      (optional)
+      - ?include_details=1         (optional, slower - fetches component summaries)
     """
     rg_name = request.GET.get("rg")
     if not rg_name:
         return JsonResponse({"error": "missing ?rg=<resource_group_name>"}, status=400)
     
+    include_details = request.GET.get("include_details") == "1"
+    
     try:
-        data = get_resources_by_rg_inventory(rg_name)
+        data = get_resources_by_rg_inventory(rg_name, include_details=include_details)
         
         # Apply optional type filter
         rtype = request.GET.get("type")
