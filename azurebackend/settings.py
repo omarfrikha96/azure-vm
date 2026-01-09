@@ -44,8 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
-    'django_crontab',  # Scheduled background tasks
-    'inventory'
+    'inventory',  # Background scheduler runs via APScheduler (see inventory/scheduler.py)
 ]
 
 MIDDLEWARE = [
@@ -132,14 +131,13 @@ STATIC_URL = 'static/'
 
 
 # -------------------------
-# Django Crontab - Scheduled background sync
+# Background Sync with APScheduler
 # -------------------------
-# Runs sync_resources command every 10 minutes to update the database with the latest Azure resources
-# On Linux/Azure VM: Run `python manage.py crontab add` to register the job
-# On Windows: Use Task Scheduler instead (django-crontab only works on Linux)
-
-CRONJOBS = [
-    # Run every 10 minutes: sync Azure resources to database
-    ('*/10 * * * *', 'django.core.management.call_command', ['sync_resources']),
-]
-
+# The background scheduler runs automatically when Django starts (via inventory/apps.py).
+# It syncs Azure resources to the database every 10 minutes.
+# See inventory/scheduler.py for configuration.
+#
+# To enable the scheduler, set the environment variable:
+#   export SCHEDULER_ENABLED=true
+#
+# Or it auto-enables when using `python manage.py runserver` (development mode).
