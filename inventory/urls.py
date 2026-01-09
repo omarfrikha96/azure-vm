@@ -10,6 +10,9 @@ from .views import (
     sync_status,
     resource_groups_db,
     resources_by_rg_db,
+    global_search,
+    trigger_sync,
+    security_posture,
 )
 
 urlpatterns = [
@@ -29,4 +32,9 @@ urlpatterns = [
     path("sync-status/", sync_status),
     path("resource-groups-db/", resource_groups_db),
     path("resources-by-rg-db/", resources_by_rg_db),
+    
+    # New features
+    path("search/", global_search),
+    path("trigger-sync/", trigger_sync),
+    path("security-posture/", security_posture),
 ]

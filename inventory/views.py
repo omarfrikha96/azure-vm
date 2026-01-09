@@ -303,3 +303,131 @@ def resources_by_rg_db(request):
         "source": "database"
     })
 
+
+@require_GET
+def global_search(request):
+    """
+    GET /api/search/?q=<query>
+    
+    Search across ALL resources by name, type, location, or resource group.
+    Returns matching resources from database.
+    """
+    from django.db.models import Q
+    
+    query = request.GET.get("q", "").strip()
+    if not query or len(query) < 2:
+        return JsonResponse({"error": "Query must be at least 2 characters", "resources": []}, status=400)
+    
+    qs = AzureResource.objects.filter(
+        is_deleted=False
+    ).filter(
+        Q(name__icontains=query) |
+        Q(type__icontains=query) |
+        Q(location__icontains=query) |
+        Q(resource_group__icontains=query)
+    ).order_by('type', 'name')[:50]  # Limit to 50 results
+    
+    data = []
+    for r in qs:
+        data.append({
+            "azure_id": r.azure_id,
+            "name": r.name,
+            "type": r.type,
+            "resource_group": r.resource_group,
+            "location": r.location,
+            "kind": r.kind,
+        })
+    
+    return JsonResponse({
+        "query": query,
+        "count": len(data),
+        "resources": data,
+    })
+
+
+@require_GET
+def trigger_sync(request):
+    """
+    GET /api/trigger-sync/
+    
+    Manually trigger a resource sync from Azure.
+    Returns immediately with status, sync runs in background.
+    """
+    import threading
+    from django.core.management import call_command
+    
+    def run_sync():
+        try:
+            call_command('sync_resources')
+        except Exception as e:
+            print(f"Sync error: {e}")
+    
+    # Run sync in background thread
+    thread = threading.Thread(target=run_sync)
+    thread.daemon = True
+    thread.start()
+    
+    return JsonResponse({
+        "status": "sync_started",
+        "message": "Synchronisation démarrée. Rafraîchissez la page dans quelques instants."
+    })
+
+
+@require_GET
+def security_posture(request):
+    """
+    GET /api/security-posture/?rg=<resource_group_name>
+    
+    Returns NSG rules and security information for resources in a group.
+    Shows inbound/outbound rules with risk assessment.
+    """
+    rg_name = request.GET.get("rg")
+    
+    qs = AzureResource.objects.filter(
+        is_deleted=False,
+        type__iexact="Microsoft.Network/networkSecurityGroups"
+    )
+    
+    if rg_name:
+        qs = qs.filter(resource_group__iexact=rg_name)
+    
+    security_data = []
+    risky_rules = []
+    
+    for nsg in qs:
+        summary = nsg.component_summary or {}
+        inbound = summary.get("inboundRules") or []
+        outbound = summary.get("outboundRules") or []
+        
+        nsg_info = {
+            "name": nsg.name,
+            "resource_group": nsg.resource_group,
+            "location": nsg.location,
+            "inbound_rules": inbound,
+            "outbound_rules": outbound,
+            "inbound_count": len(inbound),
+            "outbound_count": len(outbound),
+        }
+        
+        # Check for risky rules (0.0.0.0/0 or * source, not deny)
+        for rule in inbound:
+            src = rule.get("source", "")
+            if src in ["*", "0.0.0.0/0", "Internet"] and rule.get("access") != "Deny":
+                risky_rules.append({
+                    "nsg": nsg.name,
+                    "rule_name": rule.get("name"),
+                    "direction": "Inbound",
+                    "source": src,
+                    "destination_port": rule.get("destPort"),
+                    "protocol": rule.get("proto"),
+                    "risk": "HIGH - Open to internet"
+                })
+        
+        security_data.append(nsg_info)
+    
+    return JsonResponse({
+        "count": len(security_data),
+        "nsgs": security_data,
+        "risky_rules": risky_rules,
+        "risky_count": len(risky_rules),
+    })
