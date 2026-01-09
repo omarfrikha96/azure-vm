@@ -216,6 +216,47 @@ def get_resources_by_rg_inventory(resource_group: str, include_details: bool = F
     return result
 
 
+def get_single_resource_detail(azure_id: str) -> Dict[str, Any]:
+    """
+    Get detailed info for a single resource by its Azure ID.
+    Includes component_summary with all properties.
+    """
+    token = get_token()
+    
+    # Extract resource type from the ID
+    # Azure ID format: /subscriptions/.../providers/Microsoft.Compute/virtualMachines/myvm
+    parts = azure_id.split("/providers/")
+    if len(parts) < 2:
+        raise ValueError(f"Invalid Azure resource ID: {azure_id}")
+    
+    # Get the type from the path after /providers/
+    provider_path = parts[1]
+    # e.g., "Microsoft.Compute/virtualMachines/myvm" -> "Microsoft.Compute/virtualMachines"
+    path_parts = provider_path.split("/")
+    if len(path_parts) >= 2:
+        resource_type = f"{path_parts[0]}/{path_parts[1]}"
+    else:
+        resource_type = path_parts[0]
+    
+    # Get raw detail from Azure ARM
+    raw_detail, api_version = get_resource_raw_detail(token, azure_id, resource_type)
+    
+    # Build component summary
+    component_summary = build_component_summary(token, raw_detail)
+    
+    return {
+        "azure_id": azure_id,
+        "name": raw_detail.get("name"),
+        "type": raw_detail.get("type"),
+        "location": raw_detail.get("location"),
+        "kind": raw_detail.get("kind"),
+        "tags": raw_detail.get("tags") or {},
+        "api_version": api_version,
+        "component_summary": component_summary,
+        "properties": raw_detail.get("properties") or {},
+    }
+
+
 def get_resource_raw_detail(token: str, resource_id: str, full_type: str) -> Tuple[Dict[str, Any], str]:
     api_version = get_api_version_for_type(token, full_type)
     url = f"{ARM_BASE}{resource_id}?api-version={api_version}"

@@ -5,6 +5,7 @@ from inventory.azure_arm import (
     get_vms_inventory,
     get_resource_groups_inventory,
     get_resources_by_rg_inventory,
+    get_single_resource_detail,
 )
 from inventory.models import AzureResource, VirtualMachine
 
@@ -174,3 +175,21 @@ def resources_by_rg(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+
+@require_GET
+def resource_detail_live(request):
+    """
+    GET /api/resource-detail/?id=<azure_resource_id>
+    
+    Live call to Azure ARM to get full details for a single resource.
+    Returns component_summary with all properties.
+    """
+    azure_id = request.GET.get("id")
+    if not azure_id:
+        return JsonResponse({"error": "missing ?id=<azure_resource_id>"}, status=400)
+    
+    try:
+        data = get_single_resource_detail(azure_id)
+        return JsonResponse(data)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

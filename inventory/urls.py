@@ -6,6 +6,7 @@ from .views import (
     resource_details,
     resource_groups_list,
     resources_by_rg,
+    resource_detail_live,
 )
 
 urlpatterns = [
@@ -19,5 +20,6 @@ urlpatterns = [
     # New endpoints for frontend dashboard
     path("resource-groups/", resource_groups_list),
     path("resources-by-rg/", resources_by_rg),
+    path("resource-detail/", resource_detail_live),
 ]
 
