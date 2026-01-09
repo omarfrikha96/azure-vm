@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',
+    'django_crontab',  # Scheduled background tasks
     'inventory'
 ]
 
@@ -128,3 +129,17 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+
+# -------------------------
+# Django Crontab - Scheduled background sync
+# -------------------------
+# Runs sync_resources command every 10 minutes to update the database with the latest Azure resources
+# On Linux/Azure VM: Run `python manage.py crontab add` to register the job
+# On Windows: Use Task Scheduler instead (django-crontab only works on Linux)
+
+CRONJOBS = [
+    # Run every 10 minutes: sync Azure resources to database
+    ('*/10 * * * *', 'django.core.management.call_command', ['sync_resources']),
+]
+

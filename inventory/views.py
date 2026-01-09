@@ -193,3 +193,113 @@ def resource_detail_live(request):
         return JsonResponse(data)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@require_GET
+def sync_status(request):
+    """
+    GET /api/sync-status/
+    
+    Returns the sync status:
+      - last_synced: timestamp of the most recent resource update
+      - resource_count: total number of resources in database
+      - resource_groups: list of unique resource groups
+    """
+    from django.db.models import Max
+    
+    last_synced = AzureResource.objects.filter(is_deleted=False).aggregate(last=Max('last_seen'))['last']
+    resource_count = AzureResource.objects.filter(is_deleted=False).count()
+    resource_groups = list(
+        AzureResource.objects.filter(is_deleted=False)
+        .values_list('resource_group', flat=True)
+        .distinct()
+    )
+    
+    return JsonResponse({
+        "last_synced": last_synced.isoformat() if last_synced else None,
+        "resource_count": resource_count,
+        "resource_groups": resource_groups,
+    })
+
+
+@require_GET
+def resource_groups_db(request):
+    """
+    GET /api/resource-groups-db/
+    
+    Returns resource groups from the database (instant, no Azure API call).
+    Aggregates unique resource groups and their resource counts from synced data.
+    """
+    from django.db.models import Count, Max
+    
+    qs = AzureResource.objects.filter(is_deleted=False).values('resource_group').annotate(
+        resource_count=Count('id'),
+        last_seen=Max('last_seen')
+    ).order_by('resource_group')
+    
+    # Build response similar to live endpoint
+    resource_groups = []
+    for item in qs:
+        rg_name = item['resource_group']
+        if rg_name:
+            # Get location from first resource in this group
+            sample = AzureResource.objects.filter(
+                resource_group=rg_name, 
+                is_deleted=False
+            ).values('location').first()
+            
+            resource_groups.append({
+                "name": rg_name,
+                "location": sample.get('location') if sample else None,
+                "resource_count": item['resource_count'],
+                "last_synced": item['last_seen'].isoformat() if item['last_seen'] else None,
+            })
+    
+    return JsonResponse({
+        "count": len(resource_groups),
+        "resource_groups": resource_groups,
+        "source": "database"
+    })
+
+
+@require_GET
+def resources_by_rg_db(request):
+    """
+    GET /api/resources-by-rg-db/?rg=<resource_group_name>
+    
+    Returns resources from database (instant, no Azure API call).
+    Includes component_summary from last sync.
+    """
+    rg_name = request.GET.get("rg")
+    if not rg_name:
+        return JsonResponse({"error": "missing ?rg=<resource_group_name>"}, status=400)
+    
+    qs = AzureResource.objects.filter(
+        resource_group__iexact=rg_name,
+        is_deleted=False
+    ).order_by('type', 'name')
+    
+    # Optional type filter
+    rtype = request.GET.get("type")
+    if rtype:
+        qs = qs.filter(type__iexact=rtype)
+    
+    data = []
+    for r in qs[:500]:  # Safety limit
+        data.append({
+            "azure_id": r.azure_id,
+            "name": r.name,
+            "type": r.type,
+            "location": r.location,
+            "kind": r.kind,
+            "tags": r.tags,
+            "component_summary": r.component_summary,
+            "last_synced": r.last_seen.isoformat() if r.last_seen else None,
+        })
+    
+    return JsonResponse({
+        "count": len(data),
+        "resources": data,
+        "source": "database"
+    })
+

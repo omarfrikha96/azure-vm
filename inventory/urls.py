@@ -7,19 +7,26 @@ from .views import (
     resource_groups_list,
     resources_by_rg,
     resource_detail_live,
+    sync_status,
+    resource_groups_db,
+    resources_by_rg_db,
 )
 
 urlpatterns = [
     path("vms-live/", vms_live),
     path("vms-db/", vms_from_db),
 
-    # New generic resources API
+    # Generic resources API (from DB)
     path("resources/", resources_list),
     path("resource-details/", resource_details),
     
-    # New endpoints for frontend dashboard
+    # Live endpoints (call Azure ARM API)
     path("resource-groups/", resource_groups_list),
     path("resources-by-rg/", resources_by_rg),
     path("resource-detail/", resource_detail_live),
+    
+    # Database-backed endpoints (instant loading)
+    path("sync-status/", sync_status),
+    path("resource-groups-db/", resource_groups_db),
+    path("resources-by-rg-db/", resources_by_rg_db),
 ]
-
