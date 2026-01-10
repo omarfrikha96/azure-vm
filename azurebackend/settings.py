@@ -85,12 +85,12 @@ WSGI_APPLICATION = 'azurebackend.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "inventorydb",
-        "USER": "pgadmin",
-        "PASSWORD": "<1@4RB3zh)bRq7F{",
-        "HOST": "inventorydb25.postgres.database.azure.com",
-        "PORT": "5432",
-        "OPTIONS": {"sslmode": "require"},
+        "NAME": os.environ.get("DB_NAME", "inventorydb"),
+        "USER": os.environ.get("DB_USER", "pgadmin"),
+        "PASSWORD": os.environ.get("DB_PASSWORD", ""),
+        "HOST": os.environ.get("DB_HOST", "localhost"),
+        "PORT": os.environ.get("DB_PORT", "5432"),
+        "OPTIONS": {"sslmode": os.environ.get("DB_SSL_MODE", "require")},
     }
 }
 
