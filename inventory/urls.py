@@ -13,6 +13,7 @@ from .views import (
     global_search,
     trigger_sync,
     security_posture,
+    resource_stats,
 )
 
 urlpatterns = [
@@ -33,8 +34,10 @@ urlpatterns = [
     path("resource-groups-db/", resource_groups_db),
     path("resources-by-rg-db/", resources_by_rg_db),
     
-    # New features
+    # Features
     path("search/", global_search),
     path("trigger-sync/", trigger_sync),
     path("security-posture/", security_posture),
+    path("resource-stats/", resource_stats),
 ]
+

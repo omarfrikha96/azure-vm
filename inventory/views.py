@@ -431,3 +431,73 @@ def security_posture(request):
         "risky_rules": risky_rules,
         "risky_count": len(risky_rules),
     })
+
+
+@require_GET
+def resource_stats(request):
+    """
+    GET /api/resource-stats/
+    
+    Returns aggregated statistics about resources:
+      - counts by type
+      - counts by location
+      - recent resources
+      - total count
+    """
+    from django.db.models import Count
+    from django.db.models.functions import Lower
+    
+    # Count by type
+    type_counts = list(
+        AzureResource.objects.filter(is_deleted=False)
+        .values('type')
+        .annotate(count=Count('id'))
+        .order_by('-count')[:10]
+    )
+    
+    # Count by location
+    location_counts = list(
+        AzureResource.objects.filter(is_deleted=False)
+        .values('location')
+        .annotate(count=Count('id'))
+        .order_by('-count')
+    )
+    
+    # Recent resources (last 10 updated)
+    recent = list(
+        AzureResource.objects.filter(is_deleted=False)
+        .order_by('-last_seen')[:10]
+        .values('azure_id', 'name', 'type', 'resource_group', 'location', 'last_seen')
+    )
+    
+    # Total counts
+    total = AzureResource.objects.filter(is_deleted=False).count()
+    rg_count = AzureResource.objects.filter(is_deleted=False).values('resource_group').distinct().count()
+    
+    # Specific type counts for dashboard
+    vm_count = AzureResource.objects.filter(
+        is_deleted=False,
+        type__iexact='Microsoft.Compute/virtualMachines'
+    ).count()
+    
+    storage_count = AzureResource.objects.filter(
+        is_deleted=False,
+        type__iexact='Microsoft.Storage/storageAccounts'
+    ).count()
+    
+    network_count = AzureResource.objects.filter(
+        is_deleted=False,
+        type__icontains='Microsoft.Network'
+    ).count()
+    
+    return JsonResponse({
+        "total": total,
+        "resource_groups": rg_count,
+        "vms": vm_count,
+        "storage": storage_count,
+        "networks": network_count,
+        "by_type": type_counts,
+        "by_location": location_counts,
+        "recent": recent,
+    })
+
