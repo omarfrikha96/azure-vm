@@ -453,6 +453,7 @@ def build_vm_summary(token: str, vm_raw: Dict[str, Any]) -> Dict[str, Any]:
         "zones": zones,
         "osType": os_disk.get("osType"),
         "computerName": os_profile.get("computerName"),
+        "adminUsername": os_profile.get("adminUsername"),
         "imageReference": {
             "publisher": image_ref.get("publisher"),
             "offer": image_ref.get("offer"),
