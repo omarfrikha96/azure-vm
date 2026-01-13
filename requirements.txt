@@ -1,0 +1,26 @@
+# Django Backend Dependencies
+# Install with: pip install -r requirements.txt
+
+# Django web framework
+Django>=4.2,<7.0
+
+# Database adapter for PostgreSQL
+psycopg2-binary>=2.9.9
+
+# CORS headers support for Django
+django-cors-headers>=4.3.0
+
+# Environment variables from .env files
+python-dotenv>=1.0.0
+
+# HTTP requests library
+requests>=2.31.0
+
+# Azure Identity SDK for authentication (Managed Identity, Service Principal, etc.)
+azure-identity>=1.15.0
+
+# Background task scheduler
+APScheduler>=3.10.0
+
+# Production WSGI server (optional but recommended for deployment)
+gunicorn>=21.0.0
